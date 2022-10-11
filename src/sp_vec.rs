@@ -1,6 +1,6 @@
 use std::ops::AddAssign;
 
-use crate::{sparse_iter::SpVecIter, VecExt};
+use crate::{dim_iter::DimIter, sparse_iter::SpVecIter, weight_iter::WeightIter, VecExt};
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
 
@@ -123,6 +123,16 @@ where
     #[inline]
     fn iter(&self) -> SpVecIter<'_, Self::Wtype> {
         SpVecIter::new(self)
+    }
+
+    #[inline]
+    fn dimensions(&self) -> DimIter<'_, Self::Wtype> {
+        DimIter::new(self)
+    }
+
+    #[inline]
+    fn weights(&self) -> WeightIter<'_, Self::Wtype> {
+        WeightIter::new(self)
     }
 
     #[inline]

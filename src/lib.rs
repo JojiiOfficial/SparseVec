@@ -1,6 +1,9 @@
+pub mod dim_iter;
 pub mod sp_vec;
 pub mod sparse_iter;
+pub mod weight_iter;
 
+use dim_iter::DimIter;
 use intersect_iter::TupleIntersect;
 use num_traits::Float;
 use sparse_iter::SpVecIter;
@@ -8,6 +11,7 @@ use std::{
     ops::{Add, Mul},
     slice::IterMut,
 };
+use weight_iter::WeightIter;
 
 pub use sp_vec::SpVector;
 
@@ -68,6 +72,12 @@ pub trait VecExt {
     fn iter_mut(&mut self) -> IterMut<'_, (u32, Self::Wtype)> {
         self.as_vec_mut().iter_mut()
     }
+
+    /// Returns an iterator over all dimensions with a value > 0
+    fn dimensions(&self) -> DimIter<'_, Self::Wtype>;
+
+    /// Returns an iterator over all weight > 0
+    fn weights(&self) -> WeightIter<'_, Self::Wtype>;
 
     /// Sets the dimensions value to 0
     #[inline]
