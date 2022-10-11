@@ -1,15 +1,15 @@
 pub mod sp_vec;
 pub mod sparse_iter;
 
+use intersect_iter::TupleIntersect;
+use num_traits::Float;
+use sparse_iter::SpVecIter;
 use std::{
     ops::{Add, Mul},
     slice::IterMut,
 };
 
-use crate::sp_vec::SpVector;
-use intersect_iter::TupleIntersect;
-use num_traits::Float;
-use sparse_iter::SpVecIter;
+pub use sp_vec::SpVector;
 
 pub type SpVec32 = SpVector<f32>;
 pub type SpVec64 = SpVector<f64>;
@@ -137,4 +137,6 @@ pub trait VecExt {
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    // it works, trust me
+}
