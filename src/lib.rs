@@ -1,45 +1,85 @@
-pub mod iter;
 pub mod sp_vec;
+pub mod sparse_iter;
 
-use std::ops::{Add, Mul};
+use std::{
+    ops::{Add, Mul},
+    slice::IterMut,
+};
 
 use crate::sp_vec::SpVector;
 use intersect_iter::TupleIntersect;
-use iter::SpVecIter;
-use num::{Float, NumCast};
+use num_traits::Float;
+use sparse_iter::SpVecIter;
 
-pub type Vector32 = SpVector<f32>;
-pub type Vector64 = SpVector<f64>;
+pub type SpVec32 = SpVector<f32>;
+pub type SpVec64 = SpVector<f64>;
 
 pub trait VecExt {
     type Wtype: Float + Default;
 
-    fn get_length(&self) -> Self::Wtype;
+    /// Create a new Vec from raw values. Values don't have to be ordered
+    fn create_new_raw<I>(sparse: I) -> Self
+    where
+        I: IntoIterator<Item = (u32, Self::Wtype)>;
 
+    /// Create a new Vec from raw values. `sparse` must be sorted by dimensions and `length` must
+    /// be the length of the vector `sparse` represents
+    fn new_raw(sparse: Vec<(u32, Self::Wtype)>, length: Self::Wtype) -> Self;
+
+    /// Creates a new empty vector
     fn empty() -> Self;
 
-    fn as_vec(&self) -> &Vec<(u32, Self::Wtype)>;
+    /// Returns the vectors length in the given vector space
+    fn get_length(&self) -> Self::Wtype;
 
-    fn dim_count(&self) -> usize;
-
-    fn get_dim(&self, dim: usize) -> Option<(usize, Self::Wtype)>;
-
-    fn set_dim(&mut self, dim: usize, val: Self::Wtype);
-
-    fn has_dim(&self, dim: usize) -> bool;
-
-    fn update(&mut self) {}
-
-    fn iter(&self) -> iter::SpVecIter<'_, Self::Wtype>;
-
+    /// Returns `true` if there is at least one dimension with a value > 0
     #[inline]
-    fn delete_dim(&mut self, dim: usize) {
-        self.set_dim(dim, NumCast::from(0.0).unwrap());
+    fn is_empty(&self) -> bool {
+        self.dim_count() == 0
     }
 
-    fn last_indice(&self) -> Option<usize>;
+    /// Returns a mutable reference to a stdlib Vector with the sparse indices and values
+    fn as_vec_mut(&mut self) -> &mut Vec<(u32, Self::Wtype)>;
 
-    fn first_indice(&self) -> Option<usize>;
+    /// Returns a reference to a stdlib Vector with the sparse indices and values
+    fn as_vec(&self) -> &Vec<(u32, Self::Wtype)>;
+
+    /// Returns the amount of sparse pairs
+    fn dim_count(&self) -> usize;
+
+    /// Returns the vectors value in the given dimension
+    fn get_dim(&self, dim: usize) -> Option<Self::Wtype>;
+
+    /// Sets the vectors value in the given dimension
+    fn set_dim(&mut self, dim: usize, val: Self::Wtype);
+
+    /// Returns `true` if the vector has a value > 0 in the given dimension
+    fn has_dim(&self, dim: usize) -> bool;
+
+    /// Updates the vector after change
+    #[inline]
+    fn update(&mut self) {}
+
+    /// Returns an iterator over all dimensions with a value and skips those that are 0
+    fn iter(&self) -> SpVecIter<'_, Self::Wtype>;
+
+    /// Returns an iterator over all dimensions with a value and skips those that are 0
+    #[inline]
+    fn iter_mut(&mut self) -> IterMut<'_, (u32, Self::Wtype)> {
+        self.as_vec_mut().iter_mut()
+    }
+
+    /// Sets the dimensions value to 0
+    #[inline]
+    fn delete_dim(&mut self, dim: usize) {
+        self.set_dim(dim, Self::Wtype::default());
+    }
+
+    /// Returns the last (greatest) dimension of the vector
+    fn last_dim(&self) -> Option<usize>;
+
+    /// Returns the first (smallest) dimension of the vector
+    fn first_dim(&self) -> Option<usize>;
 
     /// Returns `true` if both vectors could potentionally have overlapping vectors.
     /// This is just an indication whether they could overlap and therefore faster than
@@ -48,13 +88,14 @@ pub trait VecExt {
     fn could_overlap<V: VecExt>(&self, other: &V) -> bool {
         let cant_overlap = self.is_empty()
             || other.is_empty()
-            || self.first_indice() > other.last_indice()
-            || self.last_indice() < other.first_indice();
+            || self.first_dim() > other.last_dim()
+            || self.last_dim() < other.first_dim();
 
         !cant_overlap
     }
 
-    /// Returns `true` if both vectors have at least one dimension in common
+    /// Returns `true` if both vectors have at least one dimension in common. If this value is
+    /// true, the standart scalar product is not zero
     #[inline]
     fn overlaps_with<V: VecExt<Wtype = Self::Wtype>>(&self, other: &V) -> bool {
         if !self.could_overlap(other) {
@@ -63,6 +104,7 @@ pub trait VecExt {
         self.intersect_iter(other).next().is_some()
     }
 
+    /// Returns an iterator over all dimensions with both vectors having a value > 0
     #[inline]
     fn intersect_iter<'a, 'b, V: VecExt<Wtype = Self::Wtype>>(
         &'a self,
@@ -82,8 +124,17 @@ pub trait VecExt {
             .fold(Self::Wtype::default(), |a, b| a.add(b))
     }
 
+    /// Calculates the cosine similarity between two vectors
     #[inline]
-    fn is_empty(&self) -> bool {
-        self.dim_count() == 0
+    fn cosine<V: VecExt<Wtype = Self::Wtype>>(&self, other: &V) -> Self::Wtype {
+        if !self.could_overlap(other) {
+            return Self::Wtype::default();
+        }
+
+        let sc = self.scalar(other);
+        sc / (self.get_length() * other.get_length())
     }
 }
+
+#[cfg(test)]
+mod test {}

@@ -1,6 +1,5 @@
-use num::Float;
-
 use crate::{sp_vec::SpVector, VecExt};
+use num_traits::Float;
 
 pub struct SpVecIter<'a, W> {
     vec: &'a SpVector<W>,

@@ -1,7 +1,7 @@
 use std::ops::AddAssign;
 
-use crate::{iter::SpVecIter, VecExt};
-use num::Float;
+use crate::{sparse_iter::SpVecIter, VecExt};
+use num_traits::Float;
 use serde::{Deserialize, Serialize};
 
 /// Sparse vector implementation
@@ -49,13 +49,39 @@ where
     type Wtype = W;
 
     #[inline]
-    fn get_length(&self) -> Self::Wtype {
-        self.length
+    fn create_new_raw<I>(sparse: I) -> Self
+    where
+        I: IntoIterator<Item = (u32, Self::Wtype)>,
+    {
+        let mut vec = Self {
+            inner: sparse.into_iter().collect(),
+            length: W::default(),
+        };
+        vec.update();
+        vec
+    }
+
+    #[inline]
+    fn new_raw(sparse: Vec<(u32, Self::Wtype)>, length: Self::Wtype) -> Self {
+        Self {
+            inner: sparse,
+            length,
+        }
     }
 
     #[inline]
     fn empty() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    fn get_length(&self) -> Self::Wtype {
+        self.length
+    }
+
+    #[inline]
+    fn as_vec_mut(&mut self) -> &mut Vec<(u32, Self::Wtype)> {
+        &mut self.inner
     }
 
     #[inline]
@@ -66,6 +92,12 @@ where
     #[inline]
     fn dim_count(&self) -> usize {
         self.inner.len()
+    }
+
+    #[inline]
+    fn get_dim(&self, dim: usize) -> Option<Self::Wtype> {
+        let index = self.dim_index(dim)?;
+        self.inner.get(index).map(|i| i.1)
     }
 
     #[inline]
@@ -83,30 +115,24 @@ where
     }
 
     #[inline]
-    fn get_dim(&self, dim: usize) -> Option<(usize, Self::Wtype)> {
-        let index = self.dim_index(dim)?;
-        self.inner.get(index).map(|i| (i.0 as usize, i.1))
-    }
-
-    #[inline]
     fn update(&mut self) {
         self.sort();
         self.length = self.calc_len();
     }
 
     #[inline]
-    fn first_indice(&self) -> Option<usize> {
-        self.inner.first().map(|i| i.0 as usize)
+    fn iter(&self) -> SpVecIter<'_, Self::Wtype> {
+        SpVecIter::new(self)
     }
 
     #[inline]
-    fn last_indice(&self) -> Option<usize> {
+    fn last_dim(&self) -> Option<usize> {
         self.inner.last().map(|i| i.0 as usize)
     }
 
     #[inline]
-    fn iter(&self) -> SpVecIter<'_, Self::Wtype> {
-        SpVecIter::new(self)
+    fn first_dim(&self) -> Option<usize> {
+        self.inner.first().map(|i| i.0 as usize)
     }
 }
 
@@ -133,3 +159,12 @@ impl<V: Float + Default> AddAssign<&Self> for SpVector<V> {
         self.update();
     }
 }
+
+impl<V: Float + Default> PartialEq for SpVector<V> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<V: Float + Default> Eq for SpVector<V> {}
